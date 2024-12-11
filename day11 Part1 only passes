@@ -1,0 +1,102 @@
+import dataclasses
+import typing
+import collections
+
+
+FILENAME = "day11_data.txt"
+
+
+def yield_data(filename: str) -> typing.Iterator[str]:
+    with open(file=filename, mode="r") as read_file:
+        for line in read_file:
+            yield line.strip()
+
+
+@dataclasses.dataclass
+class Stone:
+    number: int
+
+    def apply_rule(self, multiply_by: int = 2024) -> typing.Optional["Stone"]:
+        num_str = str(self.number)
+        match num_str:
+            case "0":
+                self.number = 1
+                return None
+
+            case num_str if len(num_str) % 2 == 0:
+                mid_index = len(num_str) // 2
+                left_number = int(num_str[:mid_index])
+                right_number = int(num_str[mid_index:])
+                self.number = left_number
+                return Stone(number=right_number)
+
+            case _:
+                self.number *= multiply_by
+                return None
+
+
+@dataclasses.dataclass
+class Stones:
+    stones: collections.deque[Stone] = dataclasses.field(
+        default_factory=collections.deque
+    )
+
+    def append(self, stone: Stone) -> None:
+        self.stones.append(stone)
+
+    def insert_after_stone(self, current_stone: Stone, new_stone: Stone) -> None:
+        current_stone_index = self.stones.index(current_stone)
+        self.stones.insert(current_stone_index + 1, new_stone)
+        return None
+
+    def blink(self) -> None:
+        new_stones: collections.deque[Stone] = collections.deque()
+        while self.stones:
+            stone = self.stones.popleft()
+            new_stone = stone.apply_rule()
+            new_stones.append(stone)
+            if new_stone:
+                new_stones.append(new_stone)
+        self.stones = new_stones
+        return None
+
+    def __len__(self) -> int:
+        return len(self.stones)
+
+    def __str__(self) -> str:
+        return " ".join(str(stone.number) for stone in self.stones)
+
+
+def create_stones(data: typing.Iterator[str]) -> Stones:
+    stones = Stones()
+    for line in data:
+        number_strs = line.split(" ")
+        for number_str in number_strs:
+            number = int(number_str)
+            stones.append(Stone(number=number))
+    return stones
+
+
+def part_one() -> int:
+    data = yield_data(FILENAME)
+    stones = create_stones(data)
+    for _ in range(25):
+        stones.blink()
+    return len(stones)
+
+
+def part_two() -> int:
+    data = yield_data(FILENAME)
+    stones = create_stones(data)
+    for _ in range(75):
+        stones.blink()
+    return len(stones)
+
+
+def main() -> None:
+    print(f"Part one: {part_one()}")
+    # print(f"Part two: {part_two()}")
+
+
+if __name__ == "__main__":
+    main()
