@@ -2,6 +2,7 @@ import dataclasses
 import enum
 import typing
 import heapq
+import collections
 
 
 TEST_FILENAME = "day16_testdata.txt"
@@ -14,7 +15,7 @@ def yield_data(filename: str) -> typing.Iterator[str]:
             yield line.strip()
 
 
-Cost = int
+Cost = int | float
 
 
 class LocationType(enum.Enum):
@@ -312,7 +313,7 @@ class Path:
 
 @dataclasses.dataclass(order=True)
 class PrioritizedItem:
-    priority: int
+    priority: int | float
     path: Path = dataclasses.field(compare=False)
 
 
@@ -330,27 +331,41 @@ def shortest_cheapest_path(grid: Grid, stop_at_first: bool = True) -> tuple[Cost
     )
     path = Path(grid)
     path.add_grid_location(path_grid_location)
-    queue: list[PrioritizedItem] = [PrioritizedItem(0, path)]
+    queue: list[PrioritizedItem] = [PrioritizedItem(float("inf"), path)]
     visited_grid_locations: set[GridLocation] = set()
+    cheapest_grid_location: collections.defaultdict[GridLocation, int | float] = collections.defaultdict(lambda: float("inf"))
+    cheapest_path: int | float = float("inf")
     cheapest_paths: list[Path] = []
     while queue:
         prioritized_item = heapq.heappop(queue)
         path = prioritized_item.path
         print(f"Queue size: {len(queue)=} Distance: {path.current_path_location.distance(end_location)}")
+        # print(path)
         # print(f"{path.current_path_location=} {path.facing_direction=} {path.cost=}")
         if path.current_path_location == end_location:
             if stop_at_first:
                 return path.cost, [path]
-            if not cheapest_paths:
-                cheapest_paths.append(path)
-            if path.cost == cheapest_paths[0].cost:
-                cheapest_paths.append(path)
-            # cheapest_paths.append(path)
-
+            else:
+                if path.cost > cheapest_path:
+                    break
 
             
-        if path.current_path_grid_location in visited_grid_locations:
+            # if not cheapest_paths:
+            #     cheapest_paths.append(path)
+            # elif path.cost == cheapest_paths[0].cost:
+            #     cheapest_paths.append(path)
+            cheapest_paths.append(path)
+            cheapest_path = min(cheapest_path, path.cost)
             continue
+
+
+        if stop_at_first:
+            if path.current_path_grid_location in visited_grid_locations:
+                continue
+        else:
+            if path.cost > cheapest_grid_location[path.current_path_grid_location]:
+                continue
+            cheapest_grid_location[path.current_path_grid_location] = path.cost
         visited_grid_locations.add(path.current_path_grid_location)
 
 
@@ -371,6 +386,13 @@ def shortest_cheapest_path(grid: Grid, stop_at_first: bool = True) -> tuple[Cost
                     new_path = path.copy()
                     new_path.add_grid_location(path_grid_location)
                     new_path.cost += cost
+
+                    if not new_path.can_move_forward:
+                        continue
+                    path_grid_location, cost = new_path.forward_path_grid_location()
+                    new_path.add_grid_location(path_grid_location)
+                    new_path.cost += cost
+                    
                     distance = new_path.current_path_location.distance(end_location)
                     priority = new_path.cost + distance
                     heapq.heappush(queue, PrioritizedItem(priority, new_path))
@@ -379,12 +401,19 @@ def shortest_cheapest_path(grid: Grid, stop_at_first: bool = True) -> tuple[Cost
                     new_path = path.copy()
                     new_path.add_grid_location(path_grid_location)
                     new_path.cost += cost
+
+                    if not new_path.can_move_forward:
+                        continue
+                    path_grid_location, cost = new_path.forward_path_grid_location()
+                    new_path.add_grid_location(path_grid_location)
+                    new_path.cost += cost
+
                     distance = new_path.current_path_location.distance(end_location)
                     priority = new_path.cost + distance
                     heapq.heappush(queue, PrioritizedItem(priority, new_path))
     if not cheapest_paths:
         return -1, []
-    return cheapest_paths[0].cost, cheapest_paths
+    return cheapest_path, [path for path in cheapest_paths if path.cost == cheapest_path]
 
 def unique_path_locations(paths: list[Path]) -> set[Location]:
     unique_locations: set[Location] = set()
@@ -394,7 +423,7 @@ def unique_path_locations(paths: list[Path]) -> set[Location]:
     return unique_locations 
 
 
-def part_one() -> int:
+def part_one() -> int | float:
     data = yield_data(FILENAME)
     grid = create_grid(data)
     print(grid)
@@ -404,15 +433,12 @@ def part_one() -> int:
 
 
 def part_two() -> int:
-    data = yield_data(TEST_FILENAME)
+    data = yield_data(FILENAME)
     grid = create_grid(data)
     print(grid)
     cost, paths = shortest_cheapest_path(grid, False)
     print(f"{len(paths)=}")
     print(f"{cost=}")
-    for path in paths:
-        print(path.cost)
-        print(path)
 
     unique_locations = unique_path_locations(paths)
 
@@ -421,7 +447,7 @@ def part_two() -> int:
 
 def main() -> None:
     print(f"Part one: {part_one()}")
-    # print(f"Part two: {part_two()}")
+    print(f"Part two: {part_two()}")
     return None
 
 
